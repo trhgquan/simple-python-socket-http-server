@@ -1,7 +1,7 @@
 from socket import *
 
 # Check if a file exist in directory
-from pathlib import Path 
+from pathlib import Path
 
 def generateResponse(status, content):
   response = ""
@@ -52,15 +52,15 @@ def authorize(requestData):
   else: return False
 
 def createServer():
-  serversocket = socket(AF_INET, SOCK_STREAM)
+  server = socket(AF_INET, SOCK_STREAM)
   try :
-    serversocket.bind(("",9000))
-    serversocket.listen(5)
+    server.bind(("", 9000))
+    server.listen(5)
 
     while True:
-      (clientsocket, address) = serversocket.accept()
+      (client, address) = server.accept()
 
-      decodedReceive = clientsocket.recv(5000).decode()
+      decodedReceive = client.recv(5000).decode()
       pieces = decodedReceive.split("\n")
 
       data = ""
@@ -71,9 +71,11 @@ def createServer():
 
         if requestMethod == "POST":
           if authorize(pieces[-1]):
-            data = generateResponse(301, "profile.html")
+            data = generateResponse(301, "infos.html")
           else:
-            data = generateResponse(301, "404.html")       
+            f = open("404.html", "r")
+            data = generateResponse(404, f.read())
+            f.close()
         else:
           fileRequested = Path(getRequestFile(pieces)[1:])
 
@@ -82,22 +84,20 @@ def createServer():
             data = generateResponse(200, f.read())
             f.close()
           else:
-            data = generateResponse(301, "404.html")
+            f = open("404.html", "r")
+            data = generateResponse(404, f.read())
+            f.close()
 
       else:
-        generateResponse(404, "<h1>An error occurs, but Pol Pot did nothing wrong</h1>")
+        generateResponse(404, "<h1>An error occurs, but you did nothing wrong, its the universe.</h1>")
         
-      clientsocket.sendall(data.encode())
-      clientsocket.shutdown(SHUT_WR)
+      client.sendall(data.encode())
+      client.shutdown(SHUT_WR)
 
   except KeyboardInterrupt :
     print("\nShutting down...\n");
 
-  #except Exception as exc :
-  #  print("Error:\n");
-  #  print(exc)
-
-  serversocket.close()
+  server.close()
 
 print('Access http://localhost:9000')
 createServer()
