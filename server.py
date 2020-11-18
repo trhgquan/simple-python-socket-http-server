@@ -13,9 +13,12 @@ NOT_FOUND_FILE = "404.html"
 DOWNLOAD_FILE  = "files.html"
 
 def generate200Response(path):
+  # Generate a 200 response code.
+
+  print("200", path)
+  
   response = "HTTP/1.1 200 OK\r\n"
 
-  print("Path: ", path)
   fileType = path.suffix[1:]
 
   response += "content-type: text/" + fileType + "; charset=utf-8\r\n"
@@ -28,6 +31,10 @@ def generate200Response(path):
   return response
 
 def generate404Response():
+  # Generate a 404 response code.
+
+  print("404")
+
   response = "HTTP/1.1 404 Not Found\r\n"
   response += "content-type: text/html; charset=utf-8\r\n"
   response += "\r\n"
@@ -39,6 +46,10 @@ def generate404Response():
   return response
 
 def generate301Response(content):
+  # Generate a 301 response code.
+
+  print("301", content)
+
   response = "HTTP/1.1 303 See Other\r\n"
   response += "Location: /" + content
 
@@ -46,31 +57,41 @@ def generate301Response(content):
 
 def getRequestMethod(request):
   # GET(POST) /url => split using space.
+
   return request[0].split(" ")[0]
 
-def getRequestFile(request):
+def getRequestLocation(request):
   # GET /index.html => /index.html => index.html
+
   return request[0].split(" ")[1][1:]
 
 def authorize(requestData):
+  # Authentication: check if username == "admin" && password == "admin"
+
+  # username=abc&password=xyz => ["username=abc", "password=xyz"]
   requestData = requestData.split("&")
 
-  if len(requestData) == 2:
-    username = requestData[0].split("=")
+  if len(requestData) != 2: return False
 
-    if len(username) == 2:
-      username = username[1]
-    else: return False
+  # username=abc => ["username", "abc"]
+  username = requestData[0].split("=")
 
-    password = requestData[1].split("=")
+  if len(username) != 2: return False
 
-    if len(password) == 2:
-      password = password[1]
-    else: return False
+  # username = "abc"
+  username = username[1]
 
-    if (username == "admin") and (password == "admin"): return True
-    return False
-  else: return False
+  # password=xyz => ["password", "xyz"]
+  password = requestData[1].split("=")
+
+  if len(password) != 2: return False
+
+  # password = "xyz"
+  password = password[1]
+
+  if (username != "admin") or (password != "admin"): return False
+
+  return True
 
 def createServer():
   server = socket(AF_INET, SOCK_STREAM)
@@ -97,7 +118,7 @@ def createServer():
             data = generate404Response()
 
         else:
-          fileRequested = Path(getRequestFile(pieces))
+          fileRequested = Path(getRequestLocation(pieces))
 
           if fileRequested.is_file():
             data = generate200Response(fileRequested)
@@ -111,7 +132,7 @@ def createServer():
       client.shutdown(SHUT_WR)
 
   except KeyboardInterrupt :
-    print("\nShutting down...\n");
+    print("Shutting down.");
 
   server.close()
 
