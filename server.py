@@ -3,24 +3,44 @@ from socket import *
 # Check if a file exist in directory
 from pathlib import Path
 
-def generateResponse(status, content):
-  response = ""
+# used for recognising files.
+import re
 
-  if status == 301:
-    response = "HTTP/1.1 303 See Other\r\n"
-    response += "Location: /" + content
 
-  else:
-    if status == 200:
-      response = "HTTP/1.1 200 OK\r\n"
-    
-    elif status == 404:
-      response = "HTTP/1.1 404 Not Found\r\n"
+INDEX_FILE     = "index.html"
+PROFILE_FILE   = "infos.html"
+NOT_FOUND_FILE = "404.html"
+DOWNLOAD_FILE  = "files.html"
 
-    response += "Content-Type: text/html; charset=utf-8\r\n"
-    response += "\r\n"
-    response += content
-    response += "\r\n\r\n"
+def generate200Response(path):
+  response = "HTTP/1.1 200 OK\r\n"
+
+  print("Path: ", path)
+  fileType = path.suffix[1:]
+
+  response += "content-type: text/" + fileType + "; charset=utf-8\r\n"
+  response += "\r\n"
+  
+  file = open(path, "r")
+  response += file.read()
+  response += "\r\n\r\n"
+
+  return response
+
+def generate404Response():
+  response = "HTTP/1.1 404 Not Found\r\n"
+  response += "content-type: text/html; charset=utf-8\r\n"
+  response += "\r\n"
+
+  file = open(NOT_FOUND_FILE, "r")
+  response += file.read()
+  response += "\r\n\r\n"
+
+  return response
+
+def generate301Response(content):
+  response = "HTTP/1.1 303 See Other\r\n"
+  response += "Location: /" + content
 
   return response
 
@@ -29,7 +49,8 @@ def getRequestMethod(request):
   return request[0].split(" ")[0]
 
 def getRequestFile(request):
-  return request[0].split(" ")[1]
+  # GET /index.html => /index.html => index.html
+  return request[0].split(" ")[1][1:]
 
 def authorize(requestData):
   requestData = requestData.split("&")
@@ -71,25 +92,20 @@ def createServer():
 
         if requestMethod == "POST":
           if authorize(pieces[-1]):
-            data = generateResponse(301, "infos.html")
+            data = generate301Response(PROFILE_FILE)
           else:
-            f = open("404.html", "r")
-            data = generateResponse(404, f.read())
-            f.close()
+            data = generate404Response()
+
         else:
-          fileRequested = Path(getRequestFile(pieces)[1:])
+          fileRequested = Path(getRequestFile(pieces))
 
           if fileRequested.is_file():
-            f = open(fileRequested, "r")
-            data = generateResponse(200, f.read())
-            f.close()
+            data = generate200Response(fileRequested)
           else:
-            f = open("404.html", "r")
-            data = generateResponse(404, f.read())
-            f.close()
+            data = generate404Response()
 
       else:
-        generateResponse(404, "<h1>An error occurs, but you did nothing wrong, its the universe.</h1>")
+        data = generate404Response()
         
       client.sendall(data.encode())
       client.shutdown(SHUT_WR)
@@ -99,5 +115,9 @@ def createServer():
 
   server.close()
 
-print('Access http://localhost:9000')
-createServer()
+def main():
+  print("Access http://localhost:9000")
+  createServer()
+
+if __name__ == "__main__":
+  main()
