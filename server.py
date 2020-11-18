@@ -6,7 +6,6 @@ from pathlib import Path
 # used for recognising files.
 import re
 
-
 INDEX_FILE     = "index.html"
 PROFILE_FILE   = "infos.html"
 NOT_FOUND_FILE = "404.html"
@@ -45,10 +44,10 @@ def generate404Response():
 
   return response
 
-def generate301Response(content):
-  # Generate a 301 response code.
+def generate303Response(content):
+  # Generate a 303 response code.
 
-  print("301", content)
+  print("303", content)
 
   response = "HTTP/1.1 303 See Other\r\n"
   response += "Location: /" + content
@@ -113,7 +112,7 @@ def createServer():
 
         if requestMethod == "POST":
           if authorize(pieces[-1]):
-            data = generate301Response(PROFILE_FILE)
+            data = generate303Response(PROFILE_FILE)
           else:
             data = generate404Response()
 
