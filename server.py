@@ -6,6 +6,7 @@ from pathlib import Path
 # used for recognising files.
 import re
 
+requestHost    = ""
 INDEX_FILE     = "index.html"
 PROFILE_FILE   = "infos.html"
 NOT_FOUND_FILE = "404.html"
@@ -29,10 +30,10 @@ def generate200Response(path):
 
   return response
 
-def generate404Response():
+def generate404Response(path = "error"):
   # Generate a 404 response code.
 
-  print("404")
+  print("404", path)
 
   response = "HTTP/1.1 404 Not Found\r\n"
   response += "content-type: text/html; charset=utf-8\r\n"
@@ -44,13 +45,13 @@ def generate404Response():
 
   return response
 
-def generate303Response(content):
-  # Generate a 303 response code.
+def generate302Response(content):
+  # Generate a 302 response code.
 
-  print("303", content)
+  print("302", content)
 
-  response = "HTTP/1.1 303 See Other\r\n"
-  response += "Location: /" + content
+  response = "HTTP/1.1 302 Found\r\n"
+  response += "Location: " + content
 
   return response
 
@@ -112,17 +113,17 @@ def createServer():
 
         if requestMethod == "POST":
           if authorize(pieces[-1]):
-            data = generate303Response(PROFILE_FILE)
+            data = generate302Response(PROFILE_FILE)
           else:
-            data = generate404Response()
+            data = generate404Response("authentication error")
 
         else:
           fileRequested = Path(getRequestLocation(pieces))
-
+          
           if fileRequested.is_file():
             data = generate200Response(fileRequested)
           else:
-            data = generate404Response()
+            data = generate404Response("\"" + str(fileRequested) + "\" not found")
 
       else:
         data = generate404Response()
@@ -136,7 +137,7 @@ def createServer():
   server.close()
 
 def main():
-  print("Access http://localhost:9000")
+  print("Server started.")
   createServer()
 
 if __name__ == "__main__":
