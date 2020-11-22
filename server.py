@@ -3,142 +3,158 @@ from socket import *
 # Check if a file exist in directory
 from pathlib import Path
 
-# used for recognising files.
-import re
-
-requestHost    = ""
 INDEX_FILE     = "index.html"
 PROFILE_FILE   = "infos.html"
 NOT_FOUND_FILE = "404.html"
 DOWNLOAD_FILE  = "files.html"
 
-def generate200Response(path):
-  # Generate a 200 response code.
+class simpleSocketHttpServer:
+  def __init__(self, hostName, port, packageSize):
+    self.hostName = hostName
+    self.port = port
+    self.packageSize = packageSize
 
-  print("200", path)
-  
-  response = "HTTP/1.1 200 OK\r\n"
+  def create(self):
+    self.server = socket(AF_INET, SOCK_STREAM)
+    self.server.bind((self.hostName, self.port))
+    self.server.listen(5)
 
-  fileType = path.suffix[1:]
+  def handle(self):
+    client, address = self.server.accept()
 
-  response += "content-type: text/" + fileType + "; charset=utf-8\r\n"
-  response += "\r\n"
-  
-  file = open(path, "r")
-  response += file.read()
-  response += "\r\n\r\n"
+    decodedReceive = client.recv(self.packageSize).decode()
 
-  return response
+    dataPieces = decodedReceive.split("\n")
 
-def generate404Response(path = "error"):
-  # Generate a 404 response code.
+    if len(dataPieces) > 0 and len(dataPieces[0]) > 0:
+      requestMethod = self.getRequestMethod(dataPieces)
 
-  print("404", path)
+      if requestMethod == "POST":
+        data = self.handleLoginRequest(dataPieces)
+      else:
+        data = self.handleNormalRequest(dataPieces)
 
-  response = "HTTP/1.1 404 Not Found\r\n"
-  response += "content-type: text/html; charset=utf-8\r\n"
-  response += "\r\n"
+    else:
+      data = self.create404Response("return empty")
 
-  file = open(NOT_FOUND_FILE, "r")
-  response += file.read()
-  response += "\r\n\r\n"
+    self.send(client, data)
 
-  return response
+    # client.sendall(data.encode())
+    # client.shutdown(SHUT_WR)
 
-def generate302Response(content):
-  # Generate a 302 response code.
+  def send(self, client, data):
+    # Do something here.
+    client.sendall(data.encode())
+    client.shutdown(SHUT_WR)
 
-  print("302", content)
+  def sendChunked(self, client, data):
+    # Do here.
+    pass
 
-  response = "HTTP/1.1 302 Found\r\n"
-  response += "Location: " + content
-
-  return response
-
-def getRequestMethod(request):
-  # GET(POST) /url => split using space.
-
-  return request[0].split(" ")[0]
-
-def getRequestLocation(request):
-  # GET /index.html => /index.html => index.html
-
-  return request[0].split(" ")[1][1:]
-
-def authorize(requestData):
-  # Authentication: check if username == "admin" && password == "admin"
-
-  # username=abc&password=xyz => ["username=abc", "password=xyz"]
-  requestData = requestData.split("&")
-
-  if len(requestData) != 2: return False
-
-  # username=abc => ["username", "abc"]
-  username = requestData[0].split("=")
-
-  if len(username) != 2: return False
-
-  # username = "abc"
-  username = username[1]
-
-  # password=xyz => ["password", "xyz"]
-  password = requestData[1].split("=")
-
-  if len(password) != 2: return False
-
-  # password = "xyz"
-  password = password[1]
-
-  if (username != "admin") or (password != "admin"): return False
-
-  return True
-
-def createServer():
-  server = socket(AF_INET, SOCK_STREAM)
-  try :
-    server.bind(("", 9000))
-    server.listen(5)
+  def start(self):
+    print("Starting server on port {port}".format(port = self.port))
+    self.create()
 
     while True:
-      (client, address) = server.accept()
+      try:
+        self.handle()
+      except KeyboardInterrupt:
+        print("Shutting down..")
+        break
 
-      decodedReceive = client.recv(5000).decode()
-      pieces = decodedReceive.split("\n")
+    self.server.close()
 
-      data = ""
 
-      # Process those requests
-      if len(pieces) > 0 and len(pieces[0]) > 0:
-        requestMethod = getRequestMethod(pieces)
 
-        if requestMethod == "POST":
-          if authorize(pieces[-1]):
-            data = generate302Response(PROFILE_FILE)
-          else:
-            data = generate404Response("authentication error")
+  def authorize(self, requestData):
+    # Authentication: check if username == "admin" && password == "admin"
 
-        else:
-          fileRequested = Path(getRequestLocation(pieces))
-          
-          if fileRequested.is_file():
-            data = generate200Response(fileRequested)
-          else:
-            data = generate404Response("\"" + str(fileRequested) + "\" not found")
+    # username=abc&password=xyz => ["username=abc", "password=xyz"]
+    requestData = requestData.split("&")
 
-      else:
-        data = generate404Response()
-        
-      client.sendall(data.encode())
-      client.shutdown(SHUT_WR)
+    if len(requestData) != 2: return False
 
-  except KeyboardInterrupt :
-    print("Shutting down.");
+    # username=abc => ["username", "abc"]
+    username = requestData[0].split("=")
 
-  server.close()
+    if len(username) != 2: return False
 
-def main():
-  print("Server started.")
-  createServer()
+    # username = "abc"
+    username = username[1]
+
+    # password=xyz => ["password", "xyz"]
+    password = requestData[1].split("=")
+
+    if len(password) != 2: return False
+
+    # password = "xyz"
+    password = password[1]
+
+    if (username != "admin") or (password != "admin"): return False
+
+    return True
+
+  def getRequestMethod(self, requestData):
+    return requestData[0].split(" ")[0]
+
+  def getRequestLocation(self, requestData):
+    return requestData[0].split(" ")[1][1:]
+
+  def create200Response(self, path):
+    # Generate a 200 response code.
+
+    print("200", path)
+
+    response = "HTTP/1.1 200 OK\r\n"
+
+    fileType = path.suffix[1:]
+
+    response += "content-type: text/" + fileType + "; charset=utf-8\r\n"
+    response += "\r\n"
+
+    file = open(path, "r")
+    response += file.read()
+    response += "\r\n\r\n"
+
+    return response
+
+  def create302Response(self, content):
+    # Generate a 302 response code.
+
+    print("302", content)
+
+    response = "HTTP/1.1 302 Found\r\n"
+    response += "Location: " + content
+
+    return response
+
+  def create404Response(self, content = "error"):
+    # Generate a 404 response code.
+
+    print("404", content)
+
+    response = "HTTP/1.1 404 Not Found\r\n"
+    response += "content-type: text/html; charset=utf-8\r\n"
+    response += "\r\n"
+
+    file = open(NOT_FOUND_FILE, "r")
+    response += file.read()
+    response += "\r\n\r\n"
+
+    return response
+
+  def handleLoginRequest(self, requestData):
+    if self.authorize(requestData[-1]):
+      return self.create302Response(PROFILE_FILE)
+    return self.create404Response()
+
+  def handleNormalRequest(self, requestData):
+    fileRequested = Path(self.getRequestLocation(requestData))
+
+    if fileRequested.is_file():
+      return self.create200Response(fileRequested)
+    return self.create404Response("Not found: \"" + str(fileRequested) + "\"")
 
 if __name__ == "__main__":
-  main()
+  server = simpleSocketHttpServer("", 9000, 5000)
+  server.start()
