@@ -1,6 +1,8 @@
 #
-# Code nay cua Quan
+# Code by Quan, Tran Hoang (student code: 19120338)
+# VNUHCM - University of Science
 #
+# https://github.com/trhgquan
 #
 
 from socket import *
@@ -34,31 +36,17 @@ class simpleSocketHttpServer:
 
     dataPieces = decodedReceive.split("\n")
 
-    data = ""
-
     if len(dataPieces) > 0 and len(dataPieces[0]) > 0:
       requestMethod = self.getRequestMethod(dataPieces)
 
       if requestMethod == "POST":
-        data = self.handleLoginRequest(dataPieces)
-      else:
+        self.handleLoginRequest(client, dataPieces)
 
-        path = Path(self.getRequestLocation(dataPieces)).suffix[1:]
-
-        for m in mediaTypeSupported:
-          m = m.split("/")[1]
-
-          if m == path:
-            self.sendChunked(client, Path(self.getRequestLocation(dataPieces)))
-            return True
-        
-        data = self.handleNormalRequest(dataPieces)
+      else:        
+        self.handleNormalRequest(client, dataPieces)
 
     else:
-      data = self.create404Response("return empty")
-
-
-    self.send(client, data)
+      self.handleErrorRequest(client)
 
   def send(self, client, data):
     # Do something here.
@@ -66,14 +54,11 @@ class simpleSocketHttpServer:
     client.shutdown(SHUT_WR)
 
   def sendChunked(self, client, path):
-    # Do here.
-
     response = "HTTP/1.1 200 OK\r\n"
 
     for m in mediaTypeSupported:
       if path.suffix[1:] == m.split("/")[1]:
         break
-
 
     if m.split("/")[1] == "pdf":
       response += "content-type: application/pdf\r\n"
@@ -85,29 +70,32 @@ class simpleSocketHttpServer:
 
     client.send(response.encode())
 
-    with open(path, "rb") as file:      
-      byte = file.read(1)
-      while byte:
-        try:
-          client.sendall("1\r\n".encode())
-          client.sendall(byte)
-          client.sendall("\r\n".encode())
-          byte = file.read(1)
-        except ConnectionAbortedError:
-          print("user canceled")
+    file = open(path, "rb")      
+    byte = file.read(1)
 
-          file.close()
-          client.shutdown(SHUT_WR)
+    while byte:
+      try:
+        client.sendall("1\r\n".encode())
+        client.sendall(byte)
+        client.sendall("\r\n".encode())
+        byte = file.read(1)
+      except ConnectionAbortedError:
+        print("user canceled")
 
-          return True
-          break
+        file.close()
+        client.shutdown(SHUT_WR)
+
+        return False
 
     file.close()
     
     client.sendall("0\r\n\r\n".encode())
+
+    print("transfer success: \"" + str(path) + "\"")
     
     client.shutdown(SHUT_WR)
-    
+
+    return True
 
   def start(self):
     print("Starting server on port {port}".format(port = self.port))
@@ -122,7 +110,7 @@ class simpleSocketHttpServer:
 
     self.server.close()
 
-  def authorize(self, requestData):
+  def authenticate(self, requestData):
     # Authentication: check if username == "admin" && password == "admin"
 
     # username=abc&password=xyz => ["username=abc", "password=xyz"]
@@ -199,17 +187,22 @@ class simpleSocketHttpServer:
 
     return response
 
-  def handleLoginRequest(self, requestData):
-    if self.authorize(requestData[-1]):
-      return self.create302Response(PROFILE_FILE)
-    return self.create404Response()
+  def handleErrorRequest(self, client):
+    return self.send(client, self.create404Response("unknown error"))
 
-  def handleNormalRequest(self, requestData):
+  def handleLoginRequest(self, client, requestData):
+    if self.authenticate(requestData[-1]):
+      return self.send(client, self.create302Response(PROFILE_FILE))
+    return self.send(client, self.create404Response("authentication error"))
+
+  def handleNormalRequest(self, client, requestData):
     fileRequested = Path(self.getRequestLocation(requestData))
     
     if fileRequested.is_file():
-      return self.create200Response(fileRequested)
-    return self.create404Response("Not found: \"" + str(fileRequested) + "\"")
+      if fileRequested.suffix[1:] in streamingLiveSupported:
+        return self.send(client, self.create200Response(fileRequested))
+      return self.sendChunked(client, fileRequested)
+    return self.send(client, self.create404Response("Not found: \"" + str(fileRequested) + "\""))
 
 if __name__ == "__main__":
   server = simpleSocketHttpServer("", 9000, 5000)
