@@ -8,6 +8,9 @@ PROFILE_FILE   = "infos.html"
 NOT_FOUND_FILE = "404.html"
 DOWNLOAD_FILE  = "files.html"
 
+streamingLiveSupported = ["html", "text", "css", "javascript"]
+mediaTypeSupported = ["video/mp4", "audio/mp3", "application/pdf", "images/jpg"]
+
 class simpleSocketHttpServer:
   def __init__(self, hostName, port, packageSize):
     self.hostName = hostName
@@ -26,30 +29,66 @@ class simpleSocketHttpServer:
 
     dataPieces = decodedReceive.split("\n")
 
+    data = ""
+
     if len(dataPieces) > 0 and len(dataPieces[0]) > 0:
       requestMethod = self.getRequestMethod(dataPieces)
 
       if requestMethod == "POST":
         data = self.handleLoginRequest(dataPieces)
       else:
+
+        path = Path(self.getRequestLocation(dataPieces)).suffix[1:]
+
+        for m in mediaTypeSupported:
+          m = m.split("/")[1]
+
+          if m == path:
+            self.sendChunked(client, Path(self.getRequestLocation(dataPieces)))
+            return True
+        
         data = self.handleNormalRequest(dataPieces)
 
     else:
       data = self.create404Response("return empty")
 
-    self.send(client, data)
 
-    # client.sendall(data.encode())
-    # client.shutdown(SHUT_WR)
+    self.send(client, data)
 
   def send(self, client, data):
     # Do something here.
     client.sendall(data.encode())
     client.shutdown(SHUT_WR)
 
-  def sendChunked(self, client, data):
+  def sendChunked(self, client, path):
     # Do here.
-    pass
+
+    response = "HTTP/1.1 200 OK\r\n"
+
+    for m in mediaTypeSupported:
+      if path.suffix[1:] == m.split("/")[1]:
+        break
+    
+    response += "content-type: " + m + "\r\n"
+    response += "transfer-encoding: chunked\r\n"
+    response += "\r\n"
+
+    client.send(response.encode())
+
+    with open(path, "rb") as file:      
+      byte = file.read(1)
+      while byte:
+        client.sendall("1\r\n".encode())
+        client.sendall(byte)
+        client.sendall("\r\n".encode())
+        byte = file.read(1)
+
+    file.close()
+    
+    client.sendall("0\r\n\r\n".encode())
+    
+    client.shutdown(SHUT_WR)
+    
 
   def start(self):
     print("Starting server on port {port}".format(port = self.port))
@@ -63,8 +102,6 @@ class simpleSocketHttpServer:
         break
 
     self.server.close()
-
-
 
   def authorize(self, requestData):
     # Authentication: check if username == "admin" && password == "admin"
@@ -105,19 +142,19 @@ class simpleSocketHttpServer:
 
     print("200", path)
 
-    response = "HTTP/1.1 200 OK\r\n"
-
     fileType = path.suffix[1:]
 
+    response = "HTTP/1.1 200 OK\r\n"
+    
     response += "content-type: text/" + fileType + "; charset=utf-8\r\n"
     response += "\r\n"
-
+      
     file = open(path, "r")
     response += file.read()
     response += "\r\n\r\n"
 
     return response
-
+    
   def create302Response(self, content):
     # Generate a 302 response code.
 
@@ -150,7 +187,7 @@ class simpleSocketHttpServer:
 
   def handleNormalRequest(self, requestData):
     fileRequested = Path(self.getRequestLocation(requestData))
-
+    
     if fileRequested.is_file():
       return self.create200Response(fileRequested)
     return self.create404Response("Not found: \"" + str(fileRequested) + "\"")
