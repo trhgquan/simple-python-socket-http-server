@@ -1,3 +1,8 @@
+#
+# Code nay cua Quan
+#
+#
+
 from socket import *
 
 # Check if a file exist in directory
@@ -68,8 +73,13 @@ class simpleSocketHttpServer:
     for m in mediaTypeSupported:
       if path.suffix[1:] == m.split("/")[1]:
         break
-    
-    response += "content-type: " + m + "\r\n"
+
+
+    if m.split("/")[1] == "pdf":
+      response += "content-type: application/pdf\r\n"
+    else:
+      response += "content-type: text/plain\r\n"
+
     response += "transfer-encoding: chunked\r\n"
     response += "\r\n"
 
@@ -78,10 +88,19 @@ class simpleSocketHttpServer:
     with open(path, "rb") as file:      
       byte = file.read(1)
       while byte:
-        client.sendall("1\r\n".encode())
-        client.sendall(byte)
-        client.sendall("\r\n".encode())
-        byte = file.read(1)
+        try:
+          client.sendall("1\r\n".encode())
+          client.sendall(byte)
+          client.sendall("\r\n".encode())
+          byte = file.read(1)
+        except ConnectionAbortedError:
+          print("user canceled")
+
+          file.close()
+          client.shutdown(SHUT_WR)
+
+          return True
+          break
 
     file.close()
     
