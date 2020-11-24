@@ -172,15 +172,19 @@ class simpleSocketHttpServer:
 
     print("200", path)
 
+    # Get file type from path.
     fileType = path.suffix[1:]
+
+    # Get file's content.
+    file = open(path, "r")
+    responseContent = file.read()
+    file.close()
 
     response = "HTTP/1.1 200 OK\r\n"
     response += "content-type: text/" + streamingLiveSupported[fileType] + "; charset=utf-8\r\n"
+    response += "content-length: " + str(len(responseContent) + 4) + "\r\n"
     response += "\r\n"
-      
-    file = open(path, "r")
-
-    response += file.read()    
+    response += responseContent   
     response += "\r\n\r\n"
 
     return response
@@ -197,17 +201,21 @@ class simpleSocketHttpServer:
     return response
 
   # Create a HTTP/1.1 404.
-  def create404Response(self, content = "error"):
+  def create404Response(self, errorContent = "error"):
     # Generate a 404 response code.
 
-    print("404", content)
+    print("404", errorContent)
+
+    # Read 404 file from template.
+    file = open(NOT_FOUND_FILE, "r")
+    responseContent = file.read()
+    file.close()
 
     response = "HTTP/1.1 404 Not Found\r\n"
     response += "content-type: text/html; charset=utf-8\r\n"
+    response += "content-length: " + str(len(responseContent) + 4) + "\r\n"
     response += "\r\n"
-
-    file = open(NOT_FOUND_FILE, "r")
-    response += file.read()
+    response += responseContent
     response += "\r\n\r\n"
 
     return response
