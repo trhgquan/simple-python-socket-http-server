@@ -10,9 +10,9 @@ This is my final Lab Project in Computer Network (CSC10008) @ VNUHCM - Universit
 
 1. From `index.html`, user log in to the system with username `admin` and password `admin`. This action use the HTTP POST method.
 
-  a. If user is logged in, redirect (HTTP/1.1 302) to `infos.html`.
+    a. If user is logged in, redirect (HTTP/1.1 302) to `infos.html`.
 
-  b. Otherwise, HTTP/1.1 404 returned.
+    b. Otherwise, HTTP/1.1 404 returned.
 
 2. `infos.html` is the information of students worked on this project.
 3. `files.html` displays a list of files that user can download. These files are delivered in `transfer-encoding: chunked` format, not `content-length`.
