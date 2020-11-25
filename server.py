@@ -197,6 +197,7 @@ class simpleSocketHttpServer:
 
     response = "HTTP/1.1 302 Found\r\n"
     response += "Location: " + content
+    response += "\r\n"
 
     return response
 
