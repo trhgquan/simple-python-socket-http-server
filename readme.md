@@ -1,6 +1,10 @@
 # Simple Python Socket HTTP Server.
 This is my final Lab Project in Computer Network (CSC10008) @ VNUHCM - University of Science, winter 2020.
 
+## Attention!
+This is a __simple__ webserver project demonstrating how socket works. Security issues ahead.
+_e.g_ type http://localhost:{port}/server.py.
+
 ## Description
 - `index.html`: Login page.
 - `404.html`: Not found page.
