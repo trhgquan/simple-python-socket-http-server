@@ -24,6 +24,16 @@ streamingLiveSupported = {
   "js" : "javascript"
 }
 
+# This function get the file's size.
+def getFileSize(filePath):
+  with open(filePath, "rb") as f:
+    # Go to the end of file.
+    f.seek(0, 2)
+    size = f.tell()
+
+  f.close()
+  return size
+
 class simpleSocketHttpServer:
   # Initialise
   def __init__(self, hostName, port, packageSize):
@@ -61,7 +71,7 @@ class simpleSocketHttpServer:
     client.shutdown(SHUT_WR)
 
   # Send data in chunks
-  def sendChunked(self, client, path):
+  def sendChunked(self, client, path, buffer = 1024):
     # First, create and send header. After a whole Sunday suffering,
     # I finally realised we just need 1 header for a whole response.
 
@@ -75,26 +85,32 @@ class simpleSocketHttpServer:
     response += "transfer-encoding: chunked\r\n"
     response += "\r\n"
 
+    # Send response header.
     client.send(response.encode())
 
-    # Then, open the requested file and read byte by bytes
-    # I can read this into buffer, but I don't good at math.
-
+    # Get file size and open file in binary-reading mode.
+    fileSize = getFileSize(path)
     file = open(path, "rb")
 
-    byte = file.read(1)
+    # Read first bytes into buffer.
+    byte = file.read(buffer)
 
     while byte:
       try:
-        # Send byte by byte.
-
-        client.sendall("1\r\n".encode())
+        # Send bytes with buffer as the size.
+        # Buffer size is in hex, [2:] remove first "0x" in hex's string representation.
+        client.sendall((str(hex(buffer))[2:] + "\r\n").encode())
         client.sendall(byte)
         client.sendall("\r\n".encode())
-        byte = file.read(1)
+
+        # Calculate size left.
+        fileSize -= buffer
+
+        if (fileSize < buffer): break
+
+        byte = file.read(buffer)
       except ConnectionAbortedError:
-        # If user canceled the download process,
-        # break.
+        # If user canceled the download process, break.
         print("user canceled")
 
         file.close()
@@ -102,14 +118,21 @@ class simpleSocketHttpServer:
 
         return False
 
-    # Close the file handler and send terminate chunks.
-    
+    # Send bytes left that don't fit into buffer.
+    if (fileSize > 0):
+      byte = file.read(fileSize)
+      client.sendall((str(hex(fileSize))[2:] + "\r\n").encode())
+      client.sendall(byte)
+      client.sendall("\r\n".encode())
+
+    # Close the file handler.
     file.close()
-    
+
+    # Send terminating chunks.
     client.sendall("0\r\n\r\n".encode())
 
     print("transfer success: \"" + str(path) + "\"")
-    
+
     client.shutdown(SHUT_WR)
 
     return True
@@ -184,7 +207,7 @@ class simpleSocketHttpServer:
     response += "content-type: text/" + streamingLiveSupported[fileType] + "; charset=utf-8\r\n"
     response += "content-length: " + str(len(responseContent) + 4) + "\r\n"
     response += "\r\n"
-    response += responseContent   
+    response += responseContent
     response += "\r\n\r\n"
 
     return response
