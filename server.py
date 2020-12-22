@@ -92,31 +92,35 @@ class simpleSocketHttpServer:
     fileSize = getFileSize(path)
     file = open(path, "rb")
 
-    # Read first bytes into buffer.
-    byte = file.read(buffer)
 
-    while byte:
-      try:
-        # Send bytes with buffer as the size.
-        # Buffer size is in hex, [2:] remove first "0x" in hex's string representation.
-        client.sendall((str(hex(buffer))[2:] + "\r\n").encode())
-        client.sendall(byte)
-        client.sendall("\r\n".encode())
+    if (fileSize >= buffer):
+      # If file can be divided into chunks,
+      # read first bytes into buffer.
+      byte = file.read(buffer)
 
-        # Calculate size left.
-        fileSize -= buffer
+      while byte:
+        try:
+          # Send bytes with buffer as the size.
+          # Buffer size is in hex, [2:] remove first "0x" in hex's string representation.
+          client.sendall((str(hex(buffer))[2:] + "\r\n").encode())
+          client.sendall(byte)
+          client.sendall("\r\n".encode())
 
-        if (fileSize < buffer): break
+          # Calculate size left.
+          fileSize -= buffer
 
-        byte = file.read(buffer)
-      except ConnectionAbortedError:
-        # If user canceled the download process, break.
-        print("user canceled")
+          # If fileSize cannot divide into chunks anymore, break.
+          if (fileSize < buffer): break
 
-        file.close()
-        client.shutdown(SHUT_WR)
+          byte = file.read(buffer)
+        except ConnectionAbortedError:
+          # If user canceled the download process, break.
+          print("user canceled")
 
-        return False
+          file.close()
+          client.shutdown(SHUT_WR)
+
+          return False
 
     # Send bytes left that don't fit into buffer.
     if (fileSize > 0):
