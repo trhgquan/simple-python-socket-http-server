@@ -10,11 +10,16 @@ from socket import *
 # Check if a file exist in directory
 from pathlib import Path
 
+from datetime import datetime, timezone
+
+import os
+
 # This is just a C/C++ ways to declare constants.
 INDEX_FILE     = "index.html"
 PROFILE_FILE   = "infos.html"
 NOT_FOUND_FILE = "404.html"
 DOWNLOAD_FILE  = "files.html"
+DOWNLOAD_DIR   = "download/"
 
 # These file extensions will not be delivered as chunks.
 streamingLiveSupported = {
@@ -33,6 +38,34 @@ def getFileSize(filePath):
 
   f.close()
   return size
+
+# This function return downloadable files inside /download directory/
+def getDownloadableFiles(directory):
+  return [ os.path.join(directory, file) for file in os.listdir(directory) ]
+
+# Create download table.
+def createDownloadableFilesTable():
+  ListTable = getDownloadableFiles(DOWNLOAD_DIR)
+
+  tableContent = ""
+  index = 0
+
+  for f in ListTable:
+    index += 1
+
+    fileStat = Path(f).stat()
+
+    tableContent += "<tr>"
+    tableContent += "<td>" + str(index) + "</td>"
+    tableContent += "<td><a href=\"" + f + "\">" + f.split("/")[1] + "</a></td>"
+    tableContent += "<td>" + \
+      datetime \
+      .fromtimestamp(fileStat.st_mtime, timezone.utc) \
+      .strftime("%Y-%m-%d %H:%M:%S") + "</td>"
+    tableContent += "<td>" + str(fileStat.st_size) + "</td>"
+    tableContent += "</tr>"
+
+  return tableContent
 
 class simpleSocketHttpServer:
   # Initialise
@@ -202,13 +235,22 @@ class simpleSocketHttpServer:
     # Get file type from path.
     fileType = path.suffix[1:]
 
-    # Get file's content.
     file = open(path, "r")
     responseContent = file.read()
+
+    # Handle specific - download files.
+    if (str(path) == "files.html"):
+      tableContent = createDownloadableFilesTable()
+
+      responseContent = responseContent.replace("##TABLE_CONTENT##", \
+        tableContent)
+
     file.close()
 
     response = "HTTP/1.1 200 OK\r\n"
-    response += "content-type: text/" + streamingLiveSupported[fileType] + "; charset=utf-8\r\n"
+    response += "content-type: text/" + \
+      streamingLiveSupported[fileType] + \
+      "; charset=utf-8\r\n"
     response += "content-length: " + str(len(responseContent) + 4) + "\r\n"
     response += "\r\n"
     response += responseContent
@@ -266,7 +308,8 @@ class simpleSocketHttpServer:
       if fileRequested.suffix[1:] in streamingLiveSupported.keys():
         return self.send(client, self.create200Response(fileRequested))
       return self.sendChunked(client, fileRequested)
-    return self.send(client, self.create404Response("Not found: \"" + str(fileRequested) + "\""))
+    return self.send(client, self.create404Response("Not found: \"" + \
+      str(fileRequested) + "\""))
 
 # Main driver.
 if __name__ == "__main__":

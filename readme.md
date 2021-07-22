@@ -5,13 +5,6 @@ This is my first Lab in Computer Network (CSC10008) @ VNUHCM - University of Sci
 
 ## Attention!
 - This is a __simple__ webserver project demonstrating how socket works. Security issues ahead. _e.g_ type http://localhost:{port}/server.py.
-- `download` folder contains
-  - `storyInsta.mp4` - video.
-  - `hello.txt` - text.
-  - `dien.mp3`  - sound.
-  - `AnhSang.jpg` - image.
-
-  You can replace these files with yours to test downloading in chunks.
 
 ## Technology used:
 - Python 3.7.5
@@ -32,7 +25,7 @@ This is my first Lab in Computer Network (CSC10008) @ VNUHCM - University of Sci
 
 2. `infos.html` is the information of students worked on this project.
 3. `files.html` displays a list of files that user can download. These files are delivered in `transfer-encoding: chunked` format, not `content-length`.
-4. Files to download are in a folder named `download` __which I ignored to save spaces__.
+4. Files to download are in a folder named `download`.
 
 ## Remarks:
 - This project __does not__ require session management & cookie management.
